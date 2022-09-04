@@ -1,0 +1,238 @@
+<!doctype html>
+<title>Sign-off task: PaaS Datastore API</title>
+<style>
+body {
+  color: black;
+  background-color: white;
+}
+
+input:invalid {
+  box-shadow: 0 0 4px 1px red;
+}
+
+.errormessage {
+  display: none;
+  padding: .2em .7em;
+  border-radius: .3em;
+  font-size: 75%;
+  color: #800;
+  background-color: #eee;
+  line-height: 1rem;
+  margin-left: 1em;
+}
+
+input:invalid ~ .errormessage {
+  display: block;
+}
+
+.samewidth {
+  display: inline-block;
+  width: 15em;
+}
+
+.counter_newval {
+  width: 7ch;
+}
+
+.the_url {
+  width: 20em;
+}
+
+code {
+  background: #fff7e5;
+  padding: .2em .5em;
+  border-radius: .2em;
+  white-space: pre;
+}
+
+.note {
+  display: block;
+  margin: .5em 0;
+  font-size: 80%;
+}
+.hidden { display: none; }
+
+#run_btn { font-weight: bold; }
+
+#automatic { margin-top: 2em; border-top: 1px solid black; padding-top: 1em; }
+
+#automatic pre {
+  border: 1px solid #aaa;
+  border-radius: .3em;
+  background: #eee;
+  padding: 1em;
+}
+</style>
+
+<h1>Sign-off task: PaaS Datastore API<</h1>
+
+<p>Add counter:
+  <input autofocus id="add_name" title="only use digits and letters"
+    pattern="[a-zA-Z0-9_]+" placeholder="enter name">
+  <button id="add_btn">add</button>
+  <span class="errormessage">only use digits and letters please</span>
+</p>
+
+<template id="counter_t">
+  <p class="counter">
+    <span class="samewidth">
+      Counter <span class="counter_name">error</span>: <span class="counter_value">error</span>
+    </span>
+    <input type="number" class="counter_newval">
+    <button class="add">add</button>
+    <button class="set">set</button>
+    <button class="delete">delete</button>
+    <button class="refresh">refresh</button>
+  </p>
+</template>
+
+<script>
+'use strict';
+
+window.addEventListener('load', init);
+
+function init() {
+  window.add_btn.addEventListener('click', addCounterToPage);
+  window.run_btn.addEventListener('click', runTests);
+  window.url_override_trigger.querySelector('button').addEventListener('click', unhideUrlOverride);
+
+  let theUrl = window.location.protocol + '//' + window.location.hostname;
+  if (window.location.port) theUrl += ':' + window.location.port;
+  window.the_url.value = theUrl;
+}
+
+function unhideUrlOverride() {
+  window.url_override.classList.remove('hidden');
+  window.url_override_trigger.classList.add('hidden');
+  window.url_override.querySelector('input').focus();
+}
+
+function addCounterToPage() {
+  if (!window.add_name.validity.valid || window.add_name.value.trim() === '') {
+    window.add_name.focus();
+    return;
+  }
+
+  const name = window.add_name.value;
+
+  for (const ctr of document.querySelectorAll('.counter')) {
+    if (ctr.querySelector('.counter_name').textContent.trim() === name) {
+      ctr.querySelector('button.refresh').click();
+      return;
+    }
+  }
+
+  const template = document.querySelector('#counter_t');
+  const ctr = document.importNode(template.content, true).children[0];
+  ctr.querySelector('.counter_name').textContent = name;
+  ctr.querySelector('.counter_value').textContent = 'loading';
+  ctr.querySelector('input.counter_newval').value = 0;
+  ctr.querySelector('button.add').addEventListener('click', addToCounter);
+  ctr.querySelector('button.set').addEventListener('click', setCounter);
+  ctr.querySelector('button.refresh').addEventListener('click', refreshCounter);
+  ctr.querySelector('button.delete').addEventListener('click', deleteCounter);
+  template.parentElement.insertBefore(ctr, template);
+  ctr.querySelector('button.refresh').click();
+  ctr.querySelector('input.counter_newval').focus();
+}
+
+function findCounterElement(node) {
+  if (node == null || node.classList.contains('counter')) return node;
+
+  return findCounterElement(node.parentElement);
+}
+
+function url() {
+  return window.the_url.value;
+}
+//PUT
+async function setCounter(ev) {
+  const ctr = findCounterElement(ev.target);
+  try {
+    ctr.querySelector('.counter_value').textContent = 'setting';
+    const name = ctr.querySelector('.counter_name').textContent;
+    const newval = ctr.querySelector('input.counter_newval').value;
+    const response = await fetch('https://counters-dot-sse-2021-jk.appspot.com/api/jacek', { method: 'PUT', body: newval });
+    if (response.ok) {
+      const text = await response.text();
+      ctr.querySelector('.counter_value').textContent = text;
+    } else {
+      ctr.querySelector('.counter_value').textContent = 'ERROR';
+      console.log(response);
+    }
+  } catch (e) {
+    ctr.querySelector('.counter_value').textContent = 'ERROR';
+    console.log(e);
+  }
+}
+//POST
+async function addToCounter(ev) {
+  const ctr = findCounterElement(ev.target);
+  try {
+    ctr.querySelector('.counter_value').textContent = 'adding';
+    const name = ctr.querySelector('.counter_name').textContent;
+    const newval = ctr.querySelector('input.counter_newval').value;
+    const response = await fetch('https://counters-dot-sse-2021-jk.appspot.com/api/jacek', { method: 'POST', body: newval });
+    if (response.ok) {
+      const text = await response.text();
+      ctr.querySelector('.counter_value').textContent = text;
+    } else {
+      ctr.querySelector('.counter_value').textContent = 'ERROR';
+      console.log(response);
+    }
+  } catch (e) {
+    ctr.querySelector('.counter_value').textContent = 'ERROR';
+    console.log(e);
+  }
+}
+//DELETE
+async function deleteCounter(ev) {
+  const ctr = findCounterElement(ev.target);
+  try {
+    ctr.querySelector('.counter_value').textContent = 'deleting';
+    const name = ctr.querySelector('.counter_name').textContent;
+    const response = await fetch('https://counters-dot-sse-2021-jk.appspot.com/api/jacek', { method: 'DELETE' });
+    if (response.ok) {
+      ctr.remove();
+      window.add_name.focus();
+    } else {
+      ctr.querySelector('.counter_value').textContent = 'ERROR';
+      console.log(response);
+    }
+  } catch (e) {
+    ctr.querySelector('.counter_value').textContent = 'ERROR';
+    console.log(e);
+  }
+}
+
+async function refreshCounter(ev) {
+  const ctr = findCounterElement(ev.target);
+  try {
+    ctr.querySelector('input.counter_newval').focus();
+    ctr.querySelector('.counter_value').textContent = 'loading';
+    const name = ctr.querySelector('.counter_name').textContent;
+    const response = await fetch('https://counters-dot-sse-2021-jk.appspot.com/api/jacek');
+    if (response.ok) {
+      const text = await response.text();
+      ctr.querySelector('.counter_value').textContent = text;
+    } else {
+      ctr.querySelector('.counter_value').textContent = 'ERROR';
+      console.log(response);
+    }
+  } catch (e) {
+    ctr.querySelector('.counter_value').textContent = 'ERROR';
+    console.log(e);
+  }
+}
+
+function log(msg) {
+  window.result.textContent += msg + '\n';
+}
+
+log.clear = () => {
+  window.result.textContent = '';
+};
+
+const TEXT = 'text/plain';
+
+</script>
